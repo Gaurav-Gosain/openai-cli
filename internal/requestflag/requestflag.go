@@ -448,7 +448,15 @@ func (f *Flag[T]) GetValue() string {
 }
 
 func (f *Flag[T]) GetDefaultText() string {
-	return f.DefaultText
+	if f.DefaultText != "" {
+		return f.DefaultText
+	}
+	if f.hasUnsetNullableDefault() {
+		return ""
+	}
+	// Help can inspect a command before its flags have been parsed. Read the
+	// declared default without invoking parsing or validation.
+	return (&cliValue[T]{f.Default}).String()
 }
 
 // GetEnvVars returns the env vars for this flag
@@ -457,7 +465,16 @@ func (f *Flag[T]) GetEnvVars() []string {
 }
 
 func (f *Flag[T]) IsDefaultVisible() bool {
-	return !f.HideDefault
+	// Prevent the renderer from falling back to the parsed value when the
+	// default text is empty: an explicit null is still not the default.
+	return !f.HideDefault && !f.hasUnsetNullableDefault()
+}
+
+func (f *Flag[T]) hasUnsetNullableDefault() bool {
+	// An unset nullable flag is omitted. Const flags are always sent, while
+	// DefaultText explicitly supplies the help description of a default.
+	value := reflect.ValueOf(f.Default)
+	return !f.Const && f.DefaultText == "" && value.Kind() == reflect.Pointer && value.IsNil()
 }
 
 func (f *Flag[T]) TypeName() string {
