@@ -249,9 +249,7 @@ func writeAutomaticBinaryResponse(response *http.Response, stdout io.Writer) (st
 		}
 	}
 	if isUTF8TextFile(sample) {
-		// bufio.Reader.WriteTo does not report a short final buffered write.
-		_, err := io.Copy(stdout, struct{ io.Reader }{buffered})
-		return "", err
+		return "", jsonview.WriteTerminalText(stdout, buffered)
 	}
 
 	file, err := createDownloadFile(response, sample)
@@ -538,6 +536,9 @@ func ShowJSONIterator[T any](iter jsonview.Iterator[T], itemsToDisplay int64, op
 
 func showJSONIterator[T any](source jsonview.Iterator[T], itemsToDisplay int64, opts ShowJSONOpts, selectTransformer transformerSelector) error {
 	opts.setDefaults()
+	if itemsToDisplay == 0 {
+		return source.Err()
+	}
 	iter := &outputIterator[T]{
 		source:    source,
 		context:   opts.Context,
